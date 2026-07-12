@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"html/template"
 	"log"
 	"net/http"
 	"strconv"
@@ -233,4 +234,61 @@ func (h *EventHandler) Leave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, map[string]string{"message": "left event"})
+}
+
+var ogpTemplate = template.Must(template.New("ogp").Parse(`<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta property="og:title" content="{{.Title}}">
+  <meta property="og:description" content="{{.Description}}">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="{{.URL}}">
+  <meta property="og:site_name" content="{{.SiteName}}">
+  <meta name="twitter:card" content="summary">
+  <title>{{.Title}} - {{.SiteName}}</title>
+</head>
+<body>
+  <h1>{{.Title}}</h1>
+  <p>{{.Description}}</p>
+</body>
+</html>`))
+
+type ogpData struct {
+	Title       string
+	Description string
+	URL         string
+	SiteName    string
+}
+
+func (h *EventHandler) GetOGP(w http.ResponseWriter, r *http.Request) {
+	eventID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, "invalid event id", http.StatusBadRequest)
+		return
+	}
+
+	event, err := h.eventService.GetByID(eventID, uuid.Nil)
+	if err != nil || event == nil {
+		http.Error(w, "event not found", http.StatusNotFound)
+		return
+	}
+
+	desc := ""
+	if event.Description != nil {
+		desc = *event.Description
+	}
+
+	siteName := "miSchedule"
+
+	data := ogpData{
+		Title:       event.Title,
+		Description: desc,
+		URL:         r.URL.String(),
+		SiteName:    siteName,
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	ogpTemplate.Execute(w, data)
 }

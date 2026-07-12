@@ -141,6 +141,8 @@ func main() {
 			w.Write([]byte(fmt.Sprintf(`{"allow_self_delete":%v}`, allowSelfDelete)))
 		})
 
+		r.Get("/ogp/events/{id}", eventHandler.GetOGP)
+
 		r.Post("/auth/login", authHandler.Login)
 		r.Post("/auth/callback", authHandler.Callback)
 		r.Post("/auth/refresh", authHandler.Refresh)
