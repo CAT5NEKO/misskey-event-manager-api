@@ -15,11 +15,18 @@ import (
 )
 
 type MiAuthClient struct {
-	cfg *config.Config
+	cfg          *config.Config
+	sessionHosts map[string]string
 }
 
 func NewMiAuthClient(cfg *config.Config) *MiAuthClient {
-	return &MiAuthClient{cfg: cfg}
+	return &MiAuthClient{cfg: cfg, sessionHosts: make(map[string]string)}
+}
+
+func (m *MiAuthClient) GetSessionHost(sessionID string) string {
+	host := m.sessionHosts[sessionID]
+	delete(m.sessionHosts, sessionID)
+	return host
 }
 
 func (m *MiAuthClient) resolveHost(host string) string {
@@ -58,6 +65,8 @@ func (m *MiAuthClient) CreateSession(host string) (*model.MiAuthSession, error) 
 	if callbackURL != "" {
 		miauthURL += fmt.Sprintf("&callback=%s", callbackURL)
 	}
+
+	m.sessionHosts[sessionID] = baseURL
 
 	return &model.MiAuthSession{
 		ID:        sessionID,

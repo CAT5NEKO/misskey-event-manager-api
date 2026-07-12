@@ -85,25 +85,15 @@ func (s *AuthService) Callback(sessionID, csrfToken string, ipAddress, userAgent
 	}
 	s.csrfStore.Remove(sessionID)
 
-	host := ""
-	for _, o := range s.cfg.AllowedOrigins {
-		host = o
-		break
+	sessionHost := s.miauth.GetSessionHost(sessionID)
+	if sessionHost == "" {
+		return nil, fmt.Errorf("セッションが見つかりません")
 	}
-	_ = host
 
 	session := &model.MiAuthSession{
 		ID:        sessionID,
+		Host:      sessionHost,
 		CreatedAt: time.Now().Add(-5 * time.Minute),
-	}
-
-	if s.cfg.IsDev() {
-		session.Host = "http://localhost:3000"
-	} else {
-		for _, inst := range s.cfg.AllowedInstances {
-			session.Host = fmt.Sprintf("https://%s", inst)
-			break
-		}
 	}
 
 	resp, err := s.miauth.GetToken(session)
