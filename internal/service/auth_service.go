@@ -48,6 +48,7 @@ func NewAuthService(
 }
 
 func (s *AuthService) Login(host string) (*model.LoginResponse, error) {
+	host = strings.TrimLeft(host, "/")
 	if !s.isHostAllowed(host) {
 		return nil, fmt.Errorf("許可されていないインスタンスです: %s", host)
 	}
@@ -70,6 +71,7 @@ func (s *AuthService) isHostAllowed(host string) bool {
 	host = strings.TrimPrefix(host, "http://")
 	host = strings.TrimPrefix(host, "https://")
 	host = strings.TrimRight(host, "/")
+	host = strings.TrimLeft(host, "/")
 	host = strings.TrimLeft(host, "/")
 
 	if s.cfg.IsInstanceAllowed(host) {
@@ -101,13 +103,11 @@ func (s *AuthService) Callback(sessionID, csrfToken string, ipAddress, userAgent
 		return nil, err
 	}
 
-	userHost := fmt.Sprintf("%s", session.Host)
-	if len(userHost) > 10 {
-		userHost = userHost[7:]
-		if len(userHost) > 0 && userHost[0:4] == "http" {
-			userHost = userHost[7:]
-		}
-	}
+	userHost := session.Host
+	userHost = strings.TrimPrefix(userHost, "https://")
+	userHost = strings.TrimPrefix(userHost, "http://")
+	userHost = strings.TrimRight(userHost, "/")
+	userHost = strings.TrimLeft(userHost, "/")
 
 	if !s.isHostAllowed(userHost) {
 		return nil, fmt.Errorf("許可されていないインスタンスです: %s", userHost)
