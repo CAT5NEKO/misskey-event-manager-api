@@ -47,6 +47,24 @@ func (s *EventService) Create(input model.CreateEventInput, creatorID uuid.UUID,
 		}
 	}
 
+	setting, _ := s.settingRepo.Get("events.max_per_user")
+	maxPerUser := 0
+	if setting != nil && len(setting.Value) > 0 {
+		var v int
+		if err := json.Unmarshal(setting.Value, &v); err == nil {
+			maxPerUser = v
+		}
+	}
+	if maxPerUser > 0 {
+		current, err := s.eventRepo.CountActiveByUser(creatorID)
+		if err != nil {
+			return nil, err
+		}
+		if current >= maxPerUser {
+			return nil, fmt.Errorf("イベント数の上限に達しています（最大 %d 件）", maxPerUser)
+		}
+	}
+
 	event := &model.Event{
 		CreatorID:          creatorID,
 		Title:              input.Title,
@@ -71,6 +89,33 @@ func (s *EventService) Create(input model.CreateEventInput, creatorID uuid.UUID,
 
 	s.logAudit(creatorID, "event.create", "event", &event.ID, ipAddress, userAgent, nil)
 	return event, nil
+}
+
+func (s *EventService) GetLimitInfo(userID uuid.UUID) (*model.EventLimitInfo, error) {
+	info := s.getLimitInfo(userID)
+	if info == nil {
+		return nil, fmt.Errorf("イベント数の取得に失敗しました")
+	}
+	return info, nil
+}
+
+func (s *EventService) getLimitInfo(userID uuid.UUID) *model.EventLimitInfo {
+	current, err := s.eventRepo.CountActiveByUser(userID)
+	if err != nil {
+		return nil
+	}
+
+	info := &model.EventLimitInfo{Max: 0, Current: current}
+
+	setting, _ := s.settingRepo.Get("events.max_per_user")
+	if setting != nil && len(setting.Value) > 0 {
+		var v int
+		if err := json.Unmarshal(setting.Value, &v); err == nil {
+			info.Max = v
+		}
+	}
+
+	return info
 }
 
 func (s *EventService) GetByID(eventID uuid.UUID, currentUserID uuid.UUID) (*model.Event, error) {
@@ -125,6 +170,7 @@ func (s *EventService) List(filterStatus, filter string, userID uuid.UUID, parti
 		TotalCount: total,
 		Page:       page,
 		Limit:      limit,
+		EventLimit: s.getLimitInfo(userID),
 	}, nil
 }
 

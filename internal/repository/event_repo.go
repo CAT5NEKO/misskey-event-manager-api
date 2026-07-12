@@ -245,10 +245,13 @@ func (r *EventRepo) FindEventsNeedingNotification() ([]model.Event, error) {
 	return events, nil
 }
 
-func (r *EventRepo) GetCreatorID(eventID uuid.UUID) (uuid.UUID, error) {
-	var creatorID uuid.UUID
-	err := r.db.QueryRow(`SELECT creator_id FROM events WHERE id = $1`, eventID).Scan(&creatorID)
-	return creatorID, err
+func (r *EventRepo) CountActiveByUser(userID uuid.UUID) (int, error) {
+	var count int
+	err := r.db.QueryRow(
+		`SELECT COUNT(*) FROM events WHERE creator_id = $1 AND status = 'active' AND (deadline IS NULL OR deadline > NOW())`,
+		userID,
+	).Scan(&count)
+	return count, err
 }
 
 func scanParticipants(rows *sql.Rows) ([]model.Participant, error) {

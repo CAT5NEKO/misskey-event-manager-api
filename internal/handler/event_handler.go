@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"miSchedule/internal/middleware"
@@ -41,6 +42,18 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, result)
 }
 
+func (h *EventHandler) GetLimitInfo(w http.ResponseWriter, r *http.Request) {
+	userID, _ := middleware.GetUserID(r)
+
+	info, err := h.eventService.GetLimitInfo(userID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, info)
+}
+
 func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID, _ := middleware.GetUserID(r)
 	var input model.CreateEventInput
@@ -72,7 +85,11 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	event, err := h.eventService.Create(input, userID, ipAddress, userAgent)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, err.Error())
+		if strings.HasPrefix(err.Error(), "イベント数の上限に達しています") {
+			respondError(w, http.StatusBadRequest, err.Error())
+		} else {
+			respondError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 

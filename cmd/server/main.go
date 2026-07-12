@@ -153,6 +153,7 @@ func main() {
 			r.Delete("/auth/account", authHandler.DeleteAccount)
 
 			r.Get("/events", eventHandler.List)
+			r.Get("/events/remaining", eventHandler.GetLimitInfo)
 			r.Post("/events", eventHandler.Create)
 			r.Get("/events/{id}", eventHandler.Get)
 			r.Put("/events/{id}", eventHandler.Update)

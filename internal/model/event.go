@@ -63,8 +63,14 @@ type JoinEventInput struct {
 }
 
 type PaginatedEvents struct {
-	Events     []Event `json:"events"`
-	TotalCount int     `json:"total_count"`
-	Page       int     `json:"page"`
-	Limit      int     `json:"limit"`
+	Events     []Event         `json:"events"`
+	TotalCount int             `json:"total_count"`
+	Page       int             `json:"page"`
+	Limit      int             `json:"limit"`
+	EventLimit *EventLimitInfo `json:"event_limit,omitempty"`
+}
+
+type EventLimitInfo struct {
+	Max     int `json:"max"`
+	Current int `json:"current"`
 }
