@@ -224,11 +224,6 @@ func (s *AuthService) Revoke(userID uuid.UUID, ipAddress, userAgent string) erro
 		return fmt.Errorf("ユーザーが見つかりません")
 	}
 
-	decryptedToken, err := s.userRepo.DecryptToken(user)
-	if err == nil {
-		s.miauth.RevokeToken("http://localhost:3000", decryptedToken)
-	}
-
 	s.userRepo.Deactivate(userID)
 	s.refreshRepo.RevokeAllForUser(userID)
 
@@ -245,11 +240,6 @@ func (s *AuthService) DeleteAccount(userID uuid.UUID, ipAddress, userAgent strin
 	setting, _ := s.settingRepo.Get("users.allow_self_delete")
 	if setting != nil && string(setting.Value) == "false" {
 		return fmt.Errorf("アカウント削除は無効化されています")
-	}
-
-	decryptedToken, err := s.userRepo.DecryptToken(user)
-	if err == nil {
-		s.miauth.RevokeToken("http://localhost:3000", decryptedToken)
 	}
 
 	s.refreshRepo.RevokeAllForUser(userID)

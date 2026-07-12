@@ -31,14 +31,6 @@ type RefreshToken struct {
 	CreatedAt time.Time `json:"-"`
 }
 
-type TokenRevocation struct {
-	ID               uuid.UUID `json:"id"`
-	UserID           uuid.UUID `json:"user_id"`
-	MisskeyTokenHash string    `json:"-"`
-	RevokedBy        string    `json:"revoked_by"`
-	RevokedAt        time.Time `json:"revoked_at"`
-}
-
 type PaginatedUsers struct {
 	Users      []User `json:"users"`
 	TotalCount int    `json:"total_count"`

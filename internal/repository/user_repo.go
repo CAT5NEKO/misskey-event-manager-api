@@ -130,29 +130,6 @@ func (r *UserRepo) List(page, limit int, search string) ([]model.User, int, erro
 	return users, total, nil
 }
 
-func (r *UserRepo) FindActiveUsers() ([]model.User, error) {
-	rows, err := r.db.Query(
-		`SELECT id, misskey_user_id, misskey_username, misskey_host, misskey_token, name, avatar_url, is_admin, is_active, last_login_at, created_at, updated_at
-		FROM users WHERE is_active = true AND misskey_token != ''`,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var users []model.User
-	for rows.Next() {
-		var u model.User
-		if err := rows.Scan(&u.ID, &u.MisskeyUserID, &u.MisskeyUsername, &u.MisskeyHost,
-			&u.MisskeyToken, &u.Name, &u.AvatarURL,
-			&u.IsAdmin, &u.IsActive, &u.LastLoginAt, &u.CreatedAt, &u.UpdatedAt); err != nil {
-			return nil, err
-		}
-		users = append(users, u)
-	}
-	return users, nil
-}
-
 func (r *UserRepo) HasAdmin() (bool, error) {
 	var count int
 	err := r.db.QueryRow(`SELECT COUNT(*) FROM users WHERE is_admin = true AND is_active = true`).Scan(&count)
@@ -160,9 +137,4 @@ func (r *UserRepo) HasAdmin() (bool, error) {
 		return false, err
 	}
 	return count > 0, nil
-}
-
-func (r *UserRepo) SetAdmin(userID uuid.UUID, isAdmin bool) error {
-	_, err := r.db.Exec(`UPDATE users SET is_admin = $1, updated_at = NOW() WHERE id = $2`, isAdmin, userID)
-	return err
 }

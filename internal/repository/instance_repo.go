@@ -98,19 +98,3 @@ func (r *InstanceRepo) IsHostAllowed(host string) (bool, error) {
 	).Scan(&count)
 	return count > 0, err
 }
-
-func (r *InstanceRepo) Seed(hosts []string, createdBy uuid.UUID) error {
-	for _, host := range hosts {
-		existing, _ := r.FindByHost(host)
-		if existing == nil {
-			r.Create(model.InstanceAllow{
-				Host:        host,
-				Enabled:     true,
-				Protected:   true,
-				Description: nil,
-				CreatedBy:   createdBy,
-			})
-		}
-	}
-	return nil
-}

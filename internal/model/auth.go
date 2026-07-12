@@ -53,9 +53,3 @@ type RefreshResponse struct {
 	JWT          string `json:"jwt"`
 	RefreshToken string `json:"refresh_token"`
 }
-
-type ErrorResponse struct {
-	Error   string `json:"error"`
-	Code    string `json:"code,omitempty"`
-	Details string `json:"details,omitempty"`
-}

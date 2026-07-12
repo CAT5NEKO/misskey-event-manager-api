@@ -63,7 +63,6 @@ func (r *SettingRepo) InitDefaults(adminID uuid.UUID) error {
 		"app.name":                     `"miSchedule"`,
 		"notification.default_timing": `[1440, 180]`,
 		"events.max_per_user":          `0`,
-		"users.list_visible":           `true`,
 		"users.allow_self_delete":      `true`,
 	}
 	for key, val := range defaults {

@@ -196,14 +196,6 @@ func (s *AdminService) GetSettings() (map[string]json.RawMessage, error) {
 	return result, nil
 }
 
-func (s *AdminService) UpdateSetting(key string, value json.RawMessage, adminID uuid.UUID, ipAddress, userAgent string) error {
-	if err := s.settingRepo.Upsert(key, value, adminID); err != nil {
-		return err
-	}
-	s.logAudit(adminID, "setting.update", "setting", nil, ipAddress, userAgent, map[string]interface{}{"key": key})
-	return nil
-}
-
 func (s *AdminService) UpdateSettings(input map[string]json.RawMessage, adminID uuid.UUID, ipAddress, userAgent string) error {
 	keys := make([]string, 0, len(input))
 	for key, value := range input {

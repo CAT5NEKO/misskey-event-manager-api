@@ -113,43 +113,6 @@ func (m *MiAuthClient) GetToken(session *model.MiAuthSession) (*model.MiAuthChec
 	return &result, nil
 }
 
-func (m *MiAuthClient) ValidateToken(host, token string) (*model.MiAuthUser, error) {
-	host = m.resolveHost(host)
-	apiURL := fmt.Sprintf("%s/api/i", host)
-	reqBody := map[string]string{}
-	bodyBytes, _ := json.Marshal(reqBody)
-
-	req, err := http.NewRequest("POST", apiURL, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("トークン検証に失敗しました: %s", string(body))
-	}
-
-	var user model.MiAuthUser
-	if err := json.Unmarshal(body, &user); err != nil {
-		return nil, fmt.Errorf("ユーザー情報の解析に失敗しました: %w", err)
-	}
-
-	return &user, nil
-}
-
 func (m *MiAuthClient) RevokeToken(host, token string) error {
 	host = m.resolveHost(host)
 	apiURL := fmt.Sprintf("%s/api/i/revoke-token", host)

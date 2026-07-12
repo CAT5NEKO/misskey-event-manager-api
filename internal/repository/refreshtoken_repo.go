@@ -39,11 +39,6 @@ func (r *RefreshTokenRepo) RevokeAllInFamily(familyID string) error {
 	return err
 }
 
-func (r *RefreshTokenRepo) RevokeToken(tokenHash string) error {
-	_, err := r.db.Exec(`UPDATE refresh_tokens SET revoked = true WHERE token_hash = $1`, tokenHash)
-	return err
-}
-
 func (r *RefreshTokenRepo) RevokeAllForUser(userID uuid.UUID) error {
 	_, err := r.db.Exec(`UPDATE refresh_tokens SET revoked = true WHERE user_id = $1`, userID)
 	return err
