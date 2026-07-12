@@ -112,29 +112,3 @@ func (m *MiAuthClient) GetToken(session *model.MiAuthSession) (*model.MiAuthChec
 
 	return &result, nil
 }
-
-func (m *MiAuthClient) RevokeToken(host, token string) error {
-	host = m.resolveHost(host)
-	apiURL := fmt.Sprintf("%s/api/i/revoke-token", host)
-	reqBody := map[string]string{}
-	bodyBytes, _ := json.Marshal(reqBody)
-
-	req, err := http.NewRequest("POST", apiURL, bytes.NewReader(bodyBytes))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 204 && resp.StatusCode != 200 {
-		return fmt.Errorf("トークン失効に失敗しました (status %d)", resp.StatusCode)
-	}
-	return nil
-}
