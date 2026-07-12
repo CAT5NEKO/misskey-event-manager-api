@@ -223,18 +223,14 @@ func (s *AdminService) CleanupAuditLogs() error {
 
 func (s *AdminService) SeedInstances() {
 	go func() {
-		if instances, _ := s.instanceRepo.List(); len(instances) > 0 {
-			return
-		}
 		for _, host := range s.cfg.AllowedInstances {
 			existing, _ := s.instanceRepo.FindByHost(host)
 			if existing == nil {
-				inst := model.InstanceAllow{
+				s.instanceRepo.Create(model.InstanceAllow{
 					Host:      host,
 					Enabled:   true,
 					Protected: true,
-				}
-				s.instanceRepo.Create(inst)
+				})
 			}
 		}
 	}()
