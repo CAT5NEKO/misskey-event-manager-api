@@ -70,6 +70,7 @@ func (s *AuthService) isHostAllowed(host string) bool {
 	host = strings.TrimPrefix(host, "http://")
 	host = strings.TrimPrefix(host, "https://")
 	host = strings.TrimRight(host, "/")
+	host = strings.TrimLeft(host, "/")
 
 	if s.cfg.IsInstanceAllowed(host) {
 		return true
