@@ -60,6 +60,7 @@ func (s *EventService) Create(input model.CreateEventInput, creatorID uuid.UUID,
 		if err != nil {
 			return nil, err
 		}
+		log.Printf("[limit] user=%s max=%d current=%d", creatorID, maxPerUser, current)
 		if current >= maxPerUser {
 			return nil, fmt.Errorf("イベント数の上限に達しています（最大 %d 件）", maxPerUser)
 		}
