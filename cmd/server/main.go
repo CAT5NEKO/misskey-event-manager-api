@@ -2,12 +2,11 @@ package main
 
 import (
 	"database/sql"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -25,6 +24,9 @@ import (
 	"github.com/go-chi/cors"
 	_ "github.com/lib/pq"
 )
+
+//go:embed migrations/*
+var migrationsFS embed.FS
 
 func main() {
 	cfg := config.Load()
@@ -213,11 +215,9 @@ func cleanupLoop(adminService *service.AdminService, refreshRepo *repository.Ref
 }
 
 func runMigrations(db *sql.DB) error {
-	dir := "migrations"
-	entries, err := os.ReadDir(dir)
+	entries, err := migrationsFS.ReadDir("migrations")
 	if err != nil {
-		log.Printf("no migrations directory, skipping")
-		return nil
+		return fmt.Errorf("read migrations dir: %w", err)
 	}
 
 	var files []string
@@ -229,8 +229,7 @@ func runMigrations(db *sql.DB) error {
 	sort.Strings(files)
 
 	for _, name := range files {
-		path := filepath.Join(dir, name)
-		content, err := os.ReadFile(path)
+		content, err := migrationsFS.ReadFile("migrations/" + name)
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", name, err)
 		}
