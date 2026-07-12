@@ -6,6 +6,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"miSchedule/internal/auth"
@@ -209,98 +213,31 @@ func cleanupLoop(adminService *service.AdminService, refreshRepo *repository.Ref
 }
 
 func runMigrations(db *sql.DB) error {
-	queries := []string{
-		`CREATE TABLE IF NOT EXISTS users (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			misskey_user_id VARCHAR(255) NOT NULL,
-			misskey_username VARCHAR(255) NOT NULL,
-			misskey_host VARCHAR(255) NOT NULL,
-			misskey_token TEXT NOT NULL,
-			name VARCHAR(255),
-			avatar_url TEXT,
-			is_admin BOOLEAN DEFAULT FALSE,
-			is_active BOOLEAN DEFAULT TRUE,
-			last_login_at TIMESTAMPTZ,
-			created_at TIMESTAMPTZ DEFAULT NOW(),
-			updated_at TIMESTAMPTZ DEFAULT NOW(),
-			UNIQUE(misskey_user_id, misskey_host)
-		)`,
-		`CREATE TABLE IF NOT EXISTS events (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			creator_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			title VARCHAR(255) NOT NULL,
-			description TEXT,
-			location VARCHAR(255),
-			notes TEXT,
-			event_date TIMESTAMPTZ,
-			deadline TIMESTAMPTZ,
-			notification_timing INTEGER[] DEFAULT '{}',
-			notified_at TIMESTAMPTZ[] DEFAULT '{}',
-			status VARCHAR(20) DEFAULT 'active',
-			created_at TIMESTAMPTZ DEFAULT NOW(),
-			updated_at TIMESTAMPTZ DEFAULT NOW()
-		)`,
-		`CREATE TABLE IF NOT EXISTS event_participants (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			status VARCHAR(20) DEFAULT 'pending',
-			comment TEXT,
-			created_at TIMESTAMPTZ DEFAULT NOW(),
-			updated_at TIMESTAMPTZ DEFAULT NOW(),
-			UNIQUE(event_id, user_id)
-		)`,
-		`CREATE TABLE IF NOT EXISTS instance_allowlist (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			host VARCHAR(255) NOT NULL UNIQUE,
-			description VARCHAR(255),
-			enabled BOOLEAN DEFAULT TRUE,
-			protected BOOLEAN DEFAULT FALSE,
-			created_by UUID REFERENCES users(id) ON DELETE SET NULL,
-			created_at TIMESTAMPTZ DEFAULT NOW(),
-			updated_at TIMESTAMPTZ DEFAULT NOW()
-		)`,
-		`CREATE TABLE IF NOT EXISTS audit_logs (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			actor_id UUID REFERENCES users(id) ON DELETE CASCADE,
-			action VARCHAR(100) NOT NULL,
-			target_type VARCHAR(50),
-			target_id UUID,
-			details JSONB,
-			ip_address VARCHAR(45),
-			user_agent TEXT,
-			created_at TIMESTAMPTZ DEFAULT NOW()
-		)`,
-		`CREATE TABLE IF NOT EXISTS system_settings (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			key VARCHAR(100) NOT NULL UNIQUE,
-			value JSONB NOT NULL,
-			updated_by UUID REFERENCES users(id) ON DELETE CASCADE,
-			updated_at TIMESTAMPTZ DEFAULT NOW()
-		)`,
-		`CREATE TABLE IF NOT EXISTS refresh_tokens (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			token_hash VARCHAR(255) NOT NULL,
-			family_id VARCHAR(255) NOT NULL,
-			expires_at TIMESTAMPTZ NOT NULL,
-			revoked BOOLEAN DEFAULT FALSE,
-			created_at TIMESTAMPTZ DEFAULT NOW()
-		)`,
-		`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash)`,
-		`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON refresh_tokens(family_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)`,
-		`CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at DESC)`,
-		`CREATE INDEX IF NOT EXISTS idx_events_creator ON events(creator_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_events_status ON events(status)`,
-		`CREATE INDEX IF NOT EXISTS idx_events_deadline ON events(deadline)`,
+	dir := "migrations"
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		log.Printf("no migrations directory, skipping")
+		return nil
 	}
 
-	for _, q := range queries {
-		if _, err := db.Exec(q); err != nil {
-			return err
+	var files []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".sql") {
+			files = append(files, e.Name())
 		}
+	}
+	sort.Strings(files)
+
+	for _, name := range files {
+		path := filepath.Join(dir, name)
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read migration %s: %w", name, err)
+		}
+		if _, err := db.Exec(string(content)); err != nil {
+			return fmt.Errorf("execute migration %s: %w", name, err)
+		}
+		log.Printf("migration applied: %s", name)
 	}
 	return nil
 }
