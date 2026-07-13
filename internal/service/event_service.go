@@ -261,6 +261,9 @@ func (s *EventService) Join(eventID uuid.UUID, userID uuid.UUID, input model.Joi
 			return nil, err
 		}
 		existing.Status = status
+		if input.Comment != nil {
+			existing.Comment = input.Comment
+		}
 		s.logAudit(userID, "participant.update", "event", &eventID, ipAddress, userAgent, nil)
 		return existing, nil
 	}
