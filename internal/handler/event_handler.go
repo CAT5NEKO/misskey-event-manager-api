@@ -240,7 +240,7 @@ var ogpTemplate = template.Must(template.New("ogp").Parse(`<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta property="og:title" content="{{.Title}}">
+  <meta property="og:title" content="{{.Title}} - {{.SiteName}}">
   <meta property="og:description" content="{{.Description}}">
   <meta property="og:type" content="article">
   <meta property="og:url" content="{{.URL}}">
@@ -274,16 +274,11 @@ func (h *EventHandler) GetOGP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	desc := ""
-	if event.Description != nil {
-		desc = *event.Description
-	}
-
 	siteName := "miSchedule"
 
 	data := ogpData{
 		Title:       event.Title,
-		Description: desc,
+		Description: "miScheduleで予定を共有しよう",
 		URL:         r.URL.String(),
 		SiteName:    siteName,
 	}
