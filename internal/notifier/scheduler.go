@@ -145,7 +145,7 @@ func (ns *NotificationScheduler) sendSingleNotification(host, token, title strin
 		eventURL = fmt.Sprintf("\n%s/events/%s", ns.cfg.NotifyEventURL, eventID.String())
 	}
 
-	body := fmt.Sprintf("【miSchedule】「%s」の期限の%sです%s", title, timingDesc, eventURL)
+	body := fmt.Sprintf("「%s」の期限の%sです%s", title, timingDesc, eventURL)
 
 	payload := map[string]interface{}{
 		"body":   body,
