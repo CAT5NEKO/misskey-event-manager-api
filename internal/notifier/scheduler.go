@@ -87,7 +87,7 @@ func (ns *NotificationScheduler) sendNotifications(event model.Event, timingInde
 	if err == nil && creator != nil && creator.IsActive {
 		token, err := ns.userRepo.DecryptToken(creator)
 		if err == nil {
-			ns.sendSingleNotification(creator.MisskeyHost, token, event.Title, timingMin)
+			ns.sendSingleNotification(creator.MisskeyHost, token, event.Title, event.ID, timingMin)
 			notified[creator.ID] = true
 		}
 	}
@@ -118,7 +118,7 @@ func (ns *NotificationScheduler) sendNotifications(event model.Event, timingInde
 			continue
 		}
 
-		ns.sendSingleNotification(user.MisskeyHost, token, event.Title, timingMin)
+		ns.sendSingleNotification(user.MisskeyHost, token, event.Title, event.ID, timingMin)
 		notified[user.ID] = true
 	}
 
@@ -128,7 +128,7 @@ func (ns *NotificationScheduler) sendNotifications(event model.Event, timingInde
 	ns.eventRepo.UpdateNotifiedAt(event.ID, timingIndex, time.Now())
 }
 
-func (ns *NotificationScheduler) sendSingleNotification(host, token, title string, timingMin int) {
+func (ns *NotificationScheduler) sendSingleNotification(host, token, title string, eventID uuid.UUID, timingMin int) {
 	var timingDesc string
 	if timingMin >= 1440 {
 		days := timingMin / 1440
@@ -140,7 +140,12 @@ func (ns *NotificationScheduler) sendSingleNotification(host, token, title strin
 		timingDesc = fmt.Sprintf("%d分前", timingMin)
 	}
 
-	body := fmt.Sprintf("【miSchedule】「%s」の期限の%sです", title, timingDesc)
+	eventURL := ""
+	if ns.cfg.NotifyEventURL != "" {
+		eventURL = fmt.Sprintf("\n%s/events/%s", ns.cfg.NotifyEventURL, eventID.String())
+	}
+
+	body := fmt.Sprintf("【miSchedule】「%s」の期限の%sです%s", title, timingDesc, eventURL)
 
 	payload := map[string]interface{}{
 		"body":   body,
