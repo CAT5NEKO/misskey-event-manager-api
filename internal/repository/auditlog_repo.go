@@ -18,9 +18,9 @@ func NewAuditLogRepo(db *sql.DB) *AuditLogRepo {
 }
 
 func (r *AuditLogRepo) Create(log *model.AuditLog) error {
-	var detailsBytes []byte
-	if log.Details != nil {
-		detailsBytes = log.Details
+	var detailsParam interface{} = nil
+	if log.Details != nil && len(log.Details) > 0 {
+		detailsParam = log.Details
 	}
 
 	return r.db.QueryRow(
@@ -28,7 +28,7 @@ func (r *AuditLogRepo) Create(log *model.AuditLog) error {
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, created_at`,
 		log.ActorID, log.Action, log.TargetType, log.TargetID,
-		detailsBytes, log.IPAddress, log.UserAgent,
+		detailsParam, log.IPAddress, log.UserAgent,
 	).Scan(&log.ID, &log.CreatedAt)
 }
 
