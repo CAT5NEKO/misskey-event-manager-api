@@ -300,7 +300,7 @@ func (s *EventService) logAudit(actorID uuid.UUID, action, targetType string, ta
 	if details != nil {
 		detailsBytes, _ = json.Marshal(details)
 	}
-	if err := s.auditRepo.Create(&model.AuditLog{
+	s.auditRepo.Create(&model.AuditLog{
 		ActorID:    actorID,
 		Action:     action,
 		TargetType: &targetType,
@@ -308,7 +308,5 @@ func (s *EventService) logAudit(actorID uuid.UUID, action, targetType string, ta
 		Details:    json.RawMessage(detailsBytes),
 		IPAddress:  &ipAddress,
 		UserAgent:  &userAgent,
-	}); err != nil {
-		log.Printf("audit log error: %v", err)
-	}
+	})
 }

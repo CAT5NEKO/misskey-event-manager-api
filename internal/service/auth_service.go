@@ -3,7 +3,6 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -265,7 +264,7 @@ func (s *AuthService) logAudit(actorID uuid.UUID, action, targetType string, tar
 	if details != nil {
 		detailsBytes, _ = json.Marshal(details)
 	}
-	if err := s.auditRepo.Create(&model.AuditLog{
+	s.auditRepo.Create(&model.AuditLog{
 		ActorID:    actorID,
 		Action:     action,
 		TargetType: &targetType,
@@ -273,9 +272,7 @@ func (s *AuthService) logAudit(actorID uuid.UUID, action, targetType string, tar
 		Details:    json.RawMessage(detailsBytes),
 		IPAddress:  &ipAddress,
 		UserAgent:  &userAgent,
-	}); err != nil {
-		log.Printf("audit log error: %v", err)
-	}
+	})
 }
 
 func (s *AuthService) getUserDisplayName(user model.MiAuthUser) string {
