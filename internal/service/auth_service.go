@@ -191,8 +191,6 @@ func (s *AuthService) Refresh(refreshTokenStr, ipAddress, userAgent string) (*mo
 		return nil, auth.ErrUserInactive
 	}
 
-	s.refreshRepo.RevokeAllInFamily(familyID)
-
 	newFamilyID := uuid.New().String()
 	newRefreshStr, err := s.jwtManager.GenerateRefreshToken(user.ID, "", newFamilyID)
 	if err != nil {
@@ -208,6 +206,8 @@ func (s *AuthService) Refresh(refreshTokenStr, ipAddress, userAgent string) (*mo
 	if err != nil {
 		return nil, err
 	}
+
+	s.refreshRepo.RevokeAllInFamily(familyID)
 
 	s.logAudit(user.ID, "user.token_refresh", "user", &user.ID, ipAddress, userAgent, nil)
 
