@@ -18,6 +18,7 @@ type Event struct {
 	NotificationTiming []int         `json:"notification_timing"`
 	NotifiedAt         TimeArray     `json:"-"`
 	Status             string        `json:"status"`
+	LinkOnly           bool          `json:"link_only"`
 	CreatedAt          time.Time     `json:"created_at"`
 	UpdatedAt          time.Time     `json:"updated_at"`
 	Creator            *User         `json:"creator,omitempty"`
@@ -44,6 +45,7 @@ type CreateEventInput struct {
 	EventDate          *time.Time `json:"event_date"`
 	Deadline           *time.Time `json:"deadline"`
 	NotificationTiming []int      `json:"notification_timing"`
+	LinkOnly           *bool      `json:"link_only"`
 }
 
 type UpdateEventInput struct {
@@ -55,6 +57,7 @@ type UpdateEventInput struct {
 	Deadline           *time.Time `json:"deadline"`
 	NotificationTiming *[]int     `json:"notification_timing"`
 	Status             *string    `json:"status"`
+	LinkOnly           *bool      `json:"link_only"`
 }
 
 type JoinEventInput struct {

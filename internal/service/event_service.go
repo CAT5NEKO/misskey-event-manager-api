@@ -76,6 +76,7 @@ func (s *EventService) Create(input model.CreateEventInput, creatorID uuid.UUID,
 		Deadline:           input.Deadline,
 		NotificationTiming: input.NotificationTiming,
 		Status:             model.EventStatusActive,
+		LinkOnly:           input.LinkOnly != nil && *input.LinkOnly,
 	}
 
 	if err := s.eventRepo.Create(event); err != nil {
@@ -209,6 +210,9 @@ func (s *EventService) Update(eventID uuid.UUID, input model.UpdateEventInput, u
 	}
 	if input.Status != nil {
 		event.Status = *input.Status
+	}
+	if input.LinkOnly != nil {
+		event.LinkOnly = *input.LinkOnly
 	}
 
 	if err := s.eventRepo.Update(event); err != nil {

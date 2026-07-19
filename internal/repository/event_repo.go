@@ -26,11 +26,11 @@ func (r *EventRepo) Create(event *model.Event) error {
 	}
 
 	return r.db.QueryRow(
-		`INSERT INTO events (creator_id, title, description, location, notes, event_date, deadline, notification_timing, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		`INSERT INTO events (creator_id, title, description, location, notes, event_date, deadline, notification_timing, status, link_only)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id, created_at, updated_at`,
 		event.CreatorID, event.Title, event.Description, event.Location, event.Notes,
-		event.EventDate, event.Deadline, pq.Array(notifTiming), event.Status,
+		event.EventDate, event.Deadline, pq.Array(notifTiming), event.Status, event.LinkOnly,
 	).Scan(&event.ID, &event.CreatedAt, &event.UpdatedAt)
 }
 
@@ -40,11 +40,11 @@ func (r *EventRepo) FindByID(id uuid.UUID) (*model.Event, error) {
 
 	err := r.db.QueryRow(
 		`SELECT id, creator_id, title, description, location, notes, event_date, deadline,
-		 notification_timing, notified_at, status, created_at, updated_at
+		 notification_timing, notified_at, status, link_only, created_at, updated_at
 		FROM events WHERE id = $1`, id,
 	).Scan(&event.ID, &event.CreatorID, &event.Title, &event.Description, &event.Location,
 		&event.Notes, &event.EventDate, &event.Deadline, pq.Array(&notifTiming),
-		&event.NotifiedAt, &event.Status, &event.CreatedAt, &event.UpdatedAt)
+		&event.NotifiedAt, &event.Status, &event.LinkOnly, &event.CreatedAt, &event.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -87,7 +87,7 @@ func (r *EventRepo) List(filterStatus, filter string, userID uuid.UUID, particip
 
 		querySQL := `SELECT DISTINCT e.id, e.creator_id, e.title, e.description, e.location, e.notes,
 			 e.event_date, e.deadline, e.notification_timing, e.notified_at,
-			 e.status, e.created_at, e.updated_at
+			 e.status, e.link_only, e.created_at, e.updated_at
 			FROM events e
 			INNER JOIN event_participants ep ON e.id = ep.event_id
 			WHERE ep.user_id = $1` + filterSQL + `
@@ -96,19 +96,21 @@ func (r *EventRepo) List(filterStatus, filter string, userID uuid.UUID, particip
 		allArgs = append(allArgs, limit, offset)
 		rows, err = r.db.Query(querySQL, allArgs...)
 	} else {
-		countSQL := `SELECT COUNT(*) FROM events e WHERE 1=1` + filterSQL
-		err = r.db.QueryRow(countSQL, args...).Scan(&total)
+		visFilter := fmt.Sprintf(" AND (e.link_only = FALSE OR e.creator_id = $%d)", len(args)+1)
+		countSQL := `SELECT COUNT(*) FROM events e WHERE 1=1` + filterSQL + visFilter
+		countArgs := append(args, userID)
+		err = r.db.QueryRow(countSQL, countArgs...).Scan(&total)
 		if err != nil {
 			return nil, 0, err
 		}
 
 		querySQL := `SELECT id, creator_id, title, description, location, notes,
 			 event_date, deadline, notification_timing, notified_at,
-			 status, created_at, updated_at
-			FROM events e WHERE 1=1` + filterSQL + `
+			 status, link_only, created_at, updated_at
+			FROM events e WHERE 1=1` + filterSQL + visFilter + `
 			ORDER BY created_at DESC
-			LIMIT $` + fmt.Sprintf("%d", len(args)+1) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+2)
-		allArgs := append(args, limit, offset)
+			LIMIT $` + fmt.Sprintf("%d", len(args)+2) + ` OFFSET $` + fmt.Sprintf("%d", len(args)+3)
+		allArgs := append(args, userID, limit, offset)
 		rows, err = r.db.Query(querySQL, allArgs...)
 	}
 	if err != nil {
@@ -122,7 +124,7 @@ func (r *EventRepo) List(filterStatus, filter string, userID uuid.UUID, particip
 		var nt []int64
 		if err := rows.Scan(&e.ID, &e.CreatorID, &e.Title, &e.Description, &e.Location,
 			&e.Notes, &e.EventDate, &e.Deadline, pq.Array(&nt), &e.NotifiedAt,
-			&e.Status, &e.CreatedAt, &e.UpdatedAt); err != nil {
+			&e.Status, &e.LinkOnly, &e.CreatedAt, &e.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		for _, n := range nt {
@@ -144,7 +146,7 @@ func (r *EventRepo) ListAll(page, limit int) ([]model.Event, int, error) {
 	rows, err := r.db.Query(
 		`SELECT id, creator_id, title, description, location, notes,
 		 event_date, deadline, notification_timing, notified_at,
-		 status, created_at, updated_at
+		 status, link_only, created_at, updated_at
 		FROM events ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
 		limit, offset,
 	)
@@ -159,7 +161,7 @@ func (r *EventRepo) ListAll(page, limit int) ([]model.Event, int, error) {
 		var nt []int64
 		if err := rows.Scan(&e.ID, &e.CreatorID, &e.Title, &e.Description, &e.Location,
 			&e.Notes, &e.EventDate, &e.Deadline, pq.Array(&nt), &e.NotifiedAt,
-			&e.Status, &e.CreatedAt, &e.UpdatedAt); err != nil {
+			&e.Status, &e.LinkOnly, &e.CreatedAt, &e.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
 		for _, n := range nt {
@@ -178,11 +180,11 @@ func (r *EventRepo) Update(event *model.Event) error {
 
 	_, err := r.db.Exec(
 		`UPDATE events SET title=$1, description=$2, location=$3, notes=$4,
-		 event_date=$5, deadline=$6, notification_timing=$7, status=$8, updated_at=NOW()
-		WHERE id=$9`,
+		 event_date=$5, deadline=$6, notification_timing=$7, status=$8, link_only=$9, updated_at=NOW()
+		WHERE id=$10`,
 		event.Title, event.Description, event.Location, event.Notes,
 		event.EventDate, event.Deadline, pq.Array(notifTiming),
-		event.Status, event.ID,
+		event.Status, event.LinkOnly, event.ID,
 	)
 	return err
 }
@@ -219,7 +221,7 @@ func (r *EventRepo) UpdateNotifiedAt(eventID uuid.UUID, timingIndex int, notifie
 func (r *EventRepo) FindEventsNeedingNotification() ([]model.Event, error) {
 	rows, err := r.db.Query(
 		`SELECT id, creator_id, title, description, location, notes,
-		 event_date, deadline, notification_timing, notified_at, status, created_at, updated_at
+		 event_date, deadline, notification_timing, notified_at, status, link_only, created_at, updated_at
 		FROM events WHERE status = 'active' AND deadline IS NOT NULL AND notification_timing IS NOT NULL
 		AND cardinality(notification_timing) > 0`,
 	)
@@ -234,7 +236,7 @@ func (r *EventRepo) FindEventsNeedingNotification() ([]model.Event, error) {
 		var nt []int64
 		if err := rows.Scan(&e.ID, &e.CreatorID, &e.Title, &e.Description, &e.Location,
 			&e.Notes, &e.EventDate, &e.Deadline, pq.Array(&nt), &e.NotifiedAt,
-			&e.Status, &e.CreatedAt, &e.UpdatedAt); err != nil {
+			&e.Status, &e.LinkOnly, &e.CreatedAt, &e.UpdatedAt); err != nil {
 			return nil, err
 		}
 		for _, n := range nt {
