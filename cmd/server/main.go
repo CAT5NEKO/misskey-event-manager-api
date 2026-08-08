@@ -88,6 +88,7 @@ func main() {
 	)
 	notificationScheduler.Run()
 
+	go expiryLoop(eventRepo)
 	go cleanupLoop(adminService, refreshTokenRepo)
 
 	r := chi.NewRouter()
@@ -206,6 +207,25 @@ func main() {
 	}
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("server error: %v", err)
+	}
+}
+
+func expiryLoop(eventRepo *repository.EventRepo) {
+	run := func() {
+		count, err := eventRepo.MarkExpired()
+		if err != nil {
+			log.Printf("expiry check error: %v", err)
+			return
+		}
+		if count > 0 {
+			log.Printf("expired %d events to completed", count)
+		}
+	}
+
+	run()
+	ticker := time.NewTicker(5 * time.Minute)
+	for range ticker.C {
+		run()
 	}
 }
 

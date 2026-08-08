@@ -247,6 +247,17 @@ func (r *EventRepo) FindEventsNeedingNotification() ([]model.Event, error) {
 	return events, nil
 }
 
+func (r *EventRepo) MarkExpired() (int64, error) {
+	res, err := r.db.Exec(
+		`UPDATE events SET status='completed', updated_at=NOW()
+		 WHERE status='active' AND deadline IS NOT NULL AND deadline <= NOW()`,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
 func (r *EventRepo) CountActiveByUser(userID uuid.UUID) (int, error) {
 	var count int
 	err := r.db.QueryRow(
