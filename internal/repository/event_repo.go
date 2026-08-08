@@ -67,9 +67,9 @@ func (r *EventRepo) List(filterStatus, filter string, userID uuid.UUID, particip
 	filterSQL := ""
 	args := []interface{}{}
 	if filter == "active" {
-		filterSQL = " AND e.status = 'active' AND (e.deadline IS NULL OR e.deadline > NOW())"
+		filterSQL = " AND e.status = 'active' AND (COALESCE(e.deadline, e.event_date) IS NULL OR COALESCE(e.deadline, e.event_date) > NOW())"
 	} else if filter == "past" {
-		filterSQL = " AND (e.status IN ('completed', 'cancelled') OR (e.status = 'active' AND e.deadline IS NOT NULL AND e.deadline <= NOW()))"
+		filterSQL = " AND (e.status IN ('completed', 'cancelled') OR (e.status = 'active' AND COALESCE(e.deadline, e.event_date) IS NOT NULL AND COALESCE(e.deadline, e.event_date) <= NOW()))"
 	} else if filterStatus != "" {
 		filterSQL = " AND e.status = $1"
 		args = append(args, filterStatus)
@@ -250,7 +250,7 @@ func (r *EventRepo) FindEventsNeedingNotification() ([]model.Event, error) {
 func (r *EventRepo) MarkExpired() (int64, error) {
 	res, err := r.db.Exec(
 		`UPDATE events SET status='completed', updated_at=NOW()
-		 WHERE status='active' AND deadline IS NOT NULL AND deadline <= NOW()`,
+		 WHERE status='active' AND COALESCE(deadline, event_date) IS NOT NULL AND COALESCE(deadline, event_date) <= NOW()`,
 	)
 	if err != nil {
 		return 0, err
@@ -261,7 +261,7 @@ func (r *EventRepo) MarkExpired() (int64, error) {
 func (r *EventRepo) CountActiveByUser(userID uuid.UUID) (int, error) {
 	var count int
 	err := r.db.QueryRow(
-		`SELECT COUNT(*) FROM events WHERE creator_id = $1 AND status = 'active' AND (deadline IS NULL OR deadline > NOW())`,
+		`SELECT COUNT(*) FROM events WHERE creator_id = $1 AND status = 'active' AND (COALESCE(deadline, event_date) IS NULL OR COALESCE(deadline, event_date) > NOW())`,
 		userID,
 	).Scan(&count)
 	return count, err
