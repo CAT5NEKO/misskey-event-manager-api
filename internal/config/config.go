@@ -17,7 +17,7 @@ type Config struct {
 	Port                 string
 	LogLevel             string
 	HostResolveMap       map[string]string
-	NotifyEventURL       string
+	PublicURL            string
 }
 
 func Load() *Config {
@@ -34,7 +34,7 @@ func Load() *Config {
 		Port:                 getEnv("PORT", "8080"),
 		LogLevel:             getEnv("LOG_LEVEL", "info"),
 		HostResolveMap:       parseHostMap(getEnv("HOST_RESOLVE_MAP", "")),
-		NotifyEventURL:       getEnv("NOTIFY_EVENT_URL", ""),
+		PublicURL:            strings.TrimRight(getEnv("PUBLIC_URL", ""), "/"),
 	}
 	return cfg
 }

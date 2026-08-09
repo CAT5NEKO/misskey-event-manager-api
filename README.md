@@ -48,11 +48,10 @@ cp -r dist/. ../backend/static/frontend_dist/
 Dockerビルドも含め、`static/frontend_dist` に `index.html` があればそのまま組み込まれます
 （無い場合はプレースホルダのみが組み込まれます）。
 
-### Netlify + バックエンドの2台構成
+### Netlify + バックエンドの分割構成で稼働する場合
 
-フロントをNetlifyに置いたままOGPも出したい場合は、NetlifyのEdge Function
-(`frontend/netlify/edge-functions/ogp.ts`) が `/events/{id}` をバックエンドの
-`GET /public/events/{id}` へプロキシします。このルートはOGP注入済みのSPA HTMLを返します。
+フロントをNetlifyに置いたままOGPも出したい場合は、NetlifyのEdge FunctionがイベントIDをバックエンドへプロキシします。  
+このルートはOGP注入済みのSPA HTMLを返します。
 
 - Netlifyサイトに環境変数 `BACKEND_PUBLIC_URL`（例 `https://api.example.com`）を設定
 - バックエンドは `og:url` 組み立て時に Edge Function が付与する `X-Forwarded-Host`/`X-Forwarded-Proto` を尊重します

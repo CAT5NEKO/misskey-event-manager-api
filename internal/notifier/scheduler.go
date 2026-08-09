@@ -50,6 +50,27 @@ func (ns *NotificationScheduler) Run() {
 		}
 	}()
 	log.Printf("notification scheduler started with %s interval", interval)
+	if ns.cfg.PublicURL == "" {
+		log.Printf("warning: PUBLIC_URL is not set; notifications will omit the event link")
+	}
+}
+
+func buildNotificationBody(title string, eventID uuid.UUID, timingMin int, eventURLBase string) string {
+	var timingDesc string
+	switch {
+	case timingMin >= 1440:
+		timingDesc = fmt.Sprintf("あと%d日", timingMin/1440)
+	case timingMin >= 60:
+		timingDesc = fmt.Sprintf("あと%d時間", timingMin/60)
+	default:
+		timingDesc = fmt.Sprintf("あと%d分", timingMin)
+	}
+
+	body := fmt.Sprintf("[期限] %s（%s）", title, timingDesc)
+	if eventURLBase != "" {
+		body += fmt.Sprintf("\n%s/events/%s", eventURLBase, eventID.String())
+	}
+	return body
 }
 
 func (ns *NotificationScheduler) checkAndNotify() {
@@ -129,27 +150,10 @@ func (ns *NotificationScheduler) sendNotifications(event model.Event, timingInde
 }
 
 func (ns *NotificationScheduler) sendSingleNotification(host, token, title string, eventID uuid.UUID, timingMin int) {
-	var timingDesc string
-	if timingMin >= 1440 {
-		days := timingMin / 1440
-		timingDesc = fmt.Sprintf("%d日前", days)
-	} else if timingMin >= 60 {
-		hours := timingMin / 60
-		timingDesc = fmt.Sprintf("%d時間前", hours)
-	} else {
-		timingDesc = fmt.Sprintf("%d分前", timingMin)
-	}
-
-	eventURL := ""
-	if ns.cfg.NotifyEventURL != "" {
-		eventURL = fmt.Sprintf("\n%s/events/%s", ns.cfg.NotifyEventURL, eventID.String())
-	}
-
-	body := fmt.Sprintf("「%s」の期限の%sです%s", title, timingDesc, eventURL)
+	body := buildNotificationBody(title, eventID, timingMin, ns.cfg.PublicURL)
 
 	payload := map[string]interface{}{
-		"body":   body,
-		"header": "miSchedule",
+		"body": body,
 	}
 	payloadBytes, _ := json.Marshal(payload)
 
