@@ -43,10 +43,9 @@ func (ns *NotificationScheduler) Run() {
 		interval = 30 * time.Second
 	}
 
-	ticker := time.NewTicker(interval)
 	go func() {
-		for range ticker.C {
-			ns.checkAndNotify()
+		for {
+			ns.cycle(interval)
 		}
 	}()
 	log.Printf("notification scheduler started with %s interval", interval)
@@ -55,31 +54,21 @@ func (ns *NotificationScheduler) Run() {
 	}
 }
 
-func buildNotificationBody(title string, eventID uuid.UUID, timingMin int, eventURLBase string) string {
-	var timingDesc string
-	switch {
-	case timingMin >= 1440:
-		timingDesc = fmt.Sprintf("あと%d日", timingMin/1440)
-	case timingMin >= 60:
-		timingDesc = fmt.Sprintf("あと%d時間", timingMin/60)
-	default:
-		timingDesc = fmt.Sprintf("あと%d分", timingMin)
-	}
-
-	body := fmt.Sprintf("[期限] %s（%s）", title, timingDesc)
-	if eventURLBase != "" {
-		body += fmt.Sprintf("\n%s/events/%s", eventURLBase, eventID.String())
-	}
-	return body
-}
-
-func (ns *NotificationScheduler) checkAndNotify() {
+// cycle sends due notifications, then sleeps until the nearest future notification
+// time (capped at interval so newly created or updated events are discovered in time).
+// A single DB query feeds both steps.
+func (ns *NotificationScheduler) cycle(interval time.Duration) {
 	events, err := ns.eventRepo.FindEventsNeedingNotification()
 	if err != nil {
 		log.Printf("notification check error: %v", err)
+		time.Sleep(interval)
 		return
 	}
+	ns.notifyDue(events)
+	time.Sleep(nextNotifyDelay(events, interval, time.Now()))
+}
 
+func (ns *NotificationScheduler) notifyDue(events []model.Event) {
 	now := time.Now()
 	for _, event := range events {
 		if event.Deadline == nil {
@@ -99,6 +88,49 @@ func (ns *NotificationScheduler) checkAndNotify() {
 			ns.sendNotifications(event, i, timingMin)
 		}
 	}
+}
+
+func nextNotifyDelay(events []model.Event, interval time.Duration, now time.Time) time.Duration {
+	next := interval
+	for _, event := range events {
+		if event.Deadline == nil {
+			continue
+		}
+		for i, timingMin := range event.NotificationTiming {
+			if len(event.NotifiedAt) > i && !event.NotifiedAt[i].IsZero() {
+				continue
+			}
+			notifyAt := event.Deadline.Add(-time.Duration(timingMin) * time.Minute)
+			if !now.Before(notifyAt) {
+				continue
+			}
+			if d := notifyAt.Sub(now); d < next {
+				next = d
+			}
+		}
+	}
+	if next < time.Second {
+		next = time.Second
+	}
+	return next
+}
+
+func buildNotificationBody(title string, eventID uuid.UUID, timingMin int, eventURLBase string) string {
+	var timingDesc string
+	switch {
+	case timingMin >= 1440:
+		timingDesc = fmt.Sprintf("あと%d日", timingMin/1440)
+	case timingMin >= 60:
+		timingDesc = fmt.Sprintf("あと%d時間", timingMin/60)
+	default:
+		timingDesc = fmt.Sprintf("あと%d分", timingMin)
+	}
+
+	body := fmt.Sprintf("[期限] %s（%s）", title, timingDesc)
+	if eventURLBase != "" {
+		body += fmt.Sprintf("\n%s/events/%s", eventURLBase, eventID.String())
+	}
+	return body
 }
 
 func (ns *NotificationScheduler) sendNotifications(event model.Event, timingIndex, timingMin int) {
