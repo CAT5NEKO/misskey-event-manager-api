@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"sort"
@@ -18,10 +19,13 @@ import (
 	"miSchedule/internal/notifier"
 	"miSchedule/internal/repository"
 	"miSchedule/internal/service"
+	"miSchedule/internal/web"
+	"miSchedule/static"
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 )
 
@@ -80,6 +84,18 @@ func main() {
 	authHandler := handler.NewAuthHandler(authService)
 	eventHandler := handler.NewEventHandler(eventService)
 	adminHandler := handler.NewAdminHandler(adminService)
+
+	assetsFS, err := fs.Sub(static.FS, "frontend_dist")
+	if err != nil {
+		log.Fatalf("failed to init frontend assets: %v", err)
+	}
+	spa, err := web.NewSPA(assetsFS, func(id uuid.UUID) (string, error) {
+		return eventService.EventTitle(id)
+	})
+	if err != nil {
+		log.Printf("warning: frontend not built (SPA serving disabled): %v", err)
+		spa = nil
+	}
 
 	adminService.SeedInstances()
 
@@ -193,6 +209,21 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok"}`))
 	})
+
+	if spa != nil {
+		r.Get("/public/events/{id}", func(w http.ResponseWriter, r *http.Request) {
+			eventID, err := uuid.Parse(chi.URLParam(r, "id"))
+			if err != nil {
+				http.Error(w, "invalid event id", http.StatusBadRequest)
+				return
+			}
+			spa.EventPage(w, r, eventID)
+		})
+		r.Get("/assets/*", func(w http.ResponseWriter, r *http.Request) {
+			spa.AssetsHandler().ServeHTTP(w, r)
+		})
+		r.NotFound(spa.ServeHTTP)
+	}
 
 	addr := ":" + cfg.Port
 	log.Printf("server starting on %s", addr)

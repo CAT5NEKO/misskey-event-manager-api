@@ -32,6 +32,17 @@ func NewEventService(
 	}
 }
 
+func (s *EventService) EventTitle(id uuid.UUID) (string, error) {
+	event, err := s.eventRepo.FindByID(id)
+	if err != nil {
+		return "", err
+	}
+	if event == nil {
+		return "", nil
+	}
+	return event.Title, nil
+}
+
 func (s *EventService) Create(input model.CreateEventInput, creatorID uuid.UUID, ipAddress, userAgent string) (*model.Event, error) {
 	if len(input.NotificationTiming) == 0 {
 		setting, _ := s.settingRepo.Get("notification.default_timing")

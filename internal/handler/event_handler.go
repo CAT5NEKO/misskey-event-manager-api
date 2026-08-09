@@ -12,6 +12,7 @@ import (
 	"miSchedule/internal/middleware"
 	"miSchedule/internal/model"
 	"miSchedule/internal/service"
+	"miSchedule/internal/web"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -268,19 +269,17 @@ func (h *EventHandler) GetOGP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	event, err := h.eventService.GetByID(eventID, uuid.Nil)
-	if err != nil || event == nil {
+	title, err := h.eventService.EventTitle(eventID)
+	if err != nil || title == "" {
 		http.Error(w, "event not found", http.StatusNotFound)
 		return
 	}
 
-	siteName := "miSchedule"
-
 	data := ogpData{
-		Title:       event.Title,
-		Description: "miScheduleで予定を共有しよう",
-		URL:         r.URL.String(),
-		SiteName:    siteName,
+		Title:       title,
+		Description: web.OGPDescription,
+		URL:         web.AbsoluteURL(r),
+		SiteName:    web.SiteName,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

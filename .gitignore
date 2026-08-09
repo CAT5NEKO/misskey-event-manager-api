@@ -24,3 +24,6 @@ coverage.out
 coverage.html
 profile.out
 __debug_bin
+
+static/frontend_dist/*
+!static/frontend_dist/index.html
