@@ -131,6 +131,8 @@ func main() {
 		MaxAge:           300,
 	}))
 
+	r.Use(middleware.ResolveClientIP(cfg.TrustProxy))
+
 	rateLimiter := middleware.NewRateLimiter()
 	r.Use(rateLimiter.GeneralLimit)
 

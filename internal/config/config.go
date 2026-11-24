@@ -19,6 +19,7 @@ type Config struct {
 	LogLevel             string
 	HostResolveMap       map[string]string
 	PublicURL            string
+	TrustProxy           bool
 }
 
 func Load() *Config {
@@ -36,6 +37,7 @@ func Load() *Config {
 		LogLevel:             getEnv("LOG_LEVEL", "info"),
 		HostResolveMap:       parseHostMap(getEnv("HOST_RESOLVE_MAP", "")),
 		PublicURL:            strings.TrimRight(getEnv("PUBLIC_URL", ""), "/"),
+		TrustProxy:           getEnvBool("TRUST_PROXY", false),
 	}
 	return cfg
 }
@@ -154,6 +156,15 @@ func parseHostMap(s string) map[string]string {
 		}
 	}
 	return result
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	v = strings.ToLower(strings.TrimSpace(v))
+	return v == "true" || v == "1" || v == "yes"
 }
 
 func loadDotEnv() {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -73,24 +74,13 @@ func (m *MiAuthClient) CreateSession(host string) (*model.MiAuthSession, error) 
 		callbackURL = origins[0] + "/auth/callback"
 	}
 
-	var hostClean string
-	if len(host) >= 7 && host[:7] == "http://" {
-		hostClean = host[7:]
-	} else if len(host) >= 8 && host[:8] == "https://" {
-		hostClean = host[8:]
-	} else {
-		hostClean = host
-	}
-	for len(hostClean) > 0 && hostClean[len(hostClean)-1] == '/' {
-		hostClean = hostClean[:len(hostClean)-1]
-	}
+	hostClean := strings.TrimRight(strings.TrimPrefix(strings.TrimPrefix(host, "https://"), "http://"), "/")
 
-	baseURL := fmt.Sprintf("http://%s", hostClean)
+	scheme := "https"
 	if m.cfg.IsDev() {
-		baseURL = fmt.Sprintf("http://%s", hostClean)
-	} else {
-		baseURL = fmt.Sprintf("https://%s", hostClean)
+		scheme = "http"
 	}
+	baseURL := fmt.Sprintf("%s://%s", scheme, hostClean)
 	miauthURL := fmt.Sprintf("%s/miauth/%s?name=miSchedule&permission=read:account,write:notifications",
 		baseURL, sessionID)
 	if callbackURL != "" {

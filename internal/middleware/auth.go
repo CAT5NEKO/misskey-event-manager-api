@@ -90,32 +90,59 @@ func IsAdmin(r *http.Request) bool {
 	return ok && isAdmin
 }
 
-func GetIPAddress(r *http.Request) string {
-	candidates := make([]string, 0, 4)
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		candidates = append(candidates, strings.Split(xff, ",")...)
+func resolveIP(candidate string) string {
+	candidate = strings.TrimSpace(candidate)
+	if candidate == "" {
+		return ""
 	}
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		candidates = append(candidates, xri)
+	if ip := net.ParseIP(candidate); ip != nil {
+		return ip.String()
 	}
-	candidates = append(candidates, r.RemoteAddr)
-
-	for _, candidate := range candidates {
-		candidate = strings.TrimSpace(candidate)
-		if candidate == "" {
-			continue
-		}
-		if ip := net.ParseIP(candidate); ip != nil {
+	if host, _, err := net.SplitHostPort(candidate); err == nil {
+		if ip := net.ParseIP(host); ip != nil {
 			return ip.String()
 		}
-		if host, _, err := net.SplitHostPort(candidate); err == nil {
-			if ip := net.ParseIP(host); ip != nil {
-				return ip.String()
+	}
+	return ""
+}
+
+func GetIPAddress(r *http.Request) string {
+	if v, ok := r.Context().Value(resolvedIPKey).(string); ok && v != "" {
+		return v
+	}
+	return resolveIP(r.RemoteAddr)
+}
+
+type resolvedIPContextKey struct{}
+
+var resolvedIPKey = resolvedIPContextKey{}
+
+func clientIP(r *http.Request, trustProxy bool) string {
+	if trustProxy {
+		if ip := resolveIP(r.Header.Get("CF-Connecting-IP")); ip != "" {
+			return ip
+		}
+		for _, part := range strings.Split(r.Header.Get("X-Forwarded-For"), ",") {
+			if ip := resolveIP(part); ip != "" {
+				return ip
 			}
 		}
+		if ip := resolveIP(r.Header.Get("X-Real-IP")); ip != "" {
+			return ip
+		}
 	}
-	if len(r.RemoteAddr) > 45 {
-		return r.RemoteAddr[:45]
+	if ip := resolveIP(r.RemoteAddr); ip != "" {
+		return ip
 	}
 	return r.RemoteAddr
+}
+
+func ResolveClientIP(trustProxy bool) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ip := clientIP(r, trustProxy)
+			ctx := context.WithValue(r.Context(), resolvedIPKey, ip)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }
