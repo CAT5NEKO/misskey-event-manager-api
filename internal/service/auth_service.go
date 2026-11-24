@@ -169,19 +169,6 @@ func (s *AuthService) Refresh(refreshTokenStr, ipAddress, userAgent string) (*mo
 		return nil, err
 	}
 
-	tokenHash := auth.HashToken(refreshTokenStr)
-	userID, familyID, revoked, err := s.refreshRepo.FindByHash(tokenHash)
-	if err != nil {
-		return nil, err
-	}
-	if userID == uuid.Nil {
-		return nil, auth.ErrInvalidToken
-	}
-	if revoked {
-		s.refreshRepo.RevokeAllInFamily(familyID)
-		return nil, auth.ErrTokenReuse
-	}
-
 	parsedUserID, _ := uuid.Parse(claims.UserID)
 	user, err := s.userRepo.FindByID(parsedUserID)
 	if err != nil || user == nil {
@@ -191,14 +178,22 @@ func (s *AuthService) Refresh(refreshTokenStr, ipAddress, userAgent string) (*mo
 		return nil, auth.ErrUserInactive
 	}
 
-	newFamilyID := uuid.New().String()
-	newRefreshStr, err := s.jwtManager.GenerateRefreshToken(user.ID, "", newFamilyID)
+	tokenHash := auth.HashToken(refreshTokenStr)
+	consumedUserID, familyID, consumed, err := s.refreshRepo.Consume(tokenHash)
+	if err != nil {
+		return nil, err
+	}
+	if !consumed || consumedUserID != user.ID {
+		return nil, auth.ErrInvalidToken
+	}
+
+	newRefreshStr, err := s.jwtManager.GenerateRefreshToken(user.ID, "", familyID)
 	if err != nil {
 		return nil, err
 	}
 	newHash := auth.HashToken(newRefreshStr)
 	expiresAt := time.Now().Add(7 * 24 * time.Hour)
-	if err := s.refreshRepo.Create(user.ID, newHash, newFamilyID, expiresAt); err != nil {
+	if err := s.refreshRepo.Create(user.ID, newHash, familyID, expiresAt); err != nil {
 		return nil, err
 	}
 
@@ -206,8 +201,6 @@ func (s *AuthService) Refresh(refreshTokenStr, ipAddress, userAgent string) (*mo
 	if err != nil {
 		return nil, err
 	}
-
-	s.refreshRepo.RevokeAllInFamily(familyID)
 
 	s.logAudit(user.ID, "user.token_refresh", "user", &user.ID, ipAddress, userAgent, nil)
 

@@ -14,10 +14,10 @@ import (
 )
 
 var (
-	ErrInvalidToken      = errors.New("invalid token")
-	ErrExpiredToken      = errors.New("token expired")
-	ErrTokenReuse         = errors.New("refresh token reuse detected")
-	ErrUserInactive      = errors.New("user account is deactivated")
+	ErrInvalidToken = errors.New("invalid token")
+	ErrExpiredToken = errors.New("token expired")
+	ErrTokenReuse   = errors.New("refresh token reuse detected")
+	ErrUserInactive = errors.New("user account is deactivated")
 )
 
 type JWTManager struct {
@@ -88,12 +88,20 @@ func (m *JWTManager) ValidateAccessToken(tokenStr string) (*AccessClaims, error)
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
 		return m.accessSecret, nil
-	})
+	},
+		jwt.WithValidMethods([]string{"HS256"}),
+		jwt.WithIssuer("miSchedule"),
+		jwt.WithAudience("miSchedule"),
+		jwt.WithExpirationRequired(),
+	)
 	if err != nil {
 		return nil, ErrInvalidToken
 	}
 	claims, ok := token.Claims.(*AccessClaims)
 	if !ok || !token.Valid {
+		return nil, ErrInvalidToken
+	}
+	if claims.TokenType != "access" {
 		return nil, ErrInvalidToken
 	}
 	return claims, nil
@@ -105,7 +113,12 @@ func (m *JWTManager) ValidateRefreshToken(tokenStr string) (*RefreshClaims, erro
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
 		return m.refreshSecret, nil
-	})
+	},
+		jwt.WithValidMethods([]string{"HS256"}),
+		jwt.WithIssuer("miSchedule"),
+		jwt.WithAudience("miSchedule"),
+		jwt.WithExpirationRequired(),
+	)
 	if err != nil {
 		return nil, ErrInvalidToken
 	}

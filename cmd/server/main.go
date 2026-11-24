@@ -34,6 +34,9 @@ var migrationsFS embed.FS
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("invalid config: %v", err)
+	}
 
 	db, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
@@ -124,7 +127,7 @@ func main() {
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
 		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
+		AllowCredentials: !(len(allowedOrigins) == 1 && allowedOrigins[0] == "*"),
 		MaxAge:           300,
 	}))
 
@@ -165,7 +168,7 @@ func main() {
 		r.Post("/auth/refresh", authHandler.Refresh)
 
 		r.Group(func(r chi.Router) {
-			r.Use(middleware.AuthMiddleware(jwtManager))
+			r.Use(middleware.AuthMiddleware(jwtManager, userRepo))
 
 			r.Get("/auth/me", authHandler.Me)
 			r.Post("/auth/revoke", authHandler.Revoke)

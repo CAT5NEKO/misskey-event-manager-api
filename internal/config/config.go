@@ -2,6 +2,7 @@ package config
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strings"
 )
@@ -37,6 +38,25 @@ func Load() *Config {
 		PublicURL:            strings.TrimRight(getEnv("PUBLIC_URL", ""), "/"),
 	}
 	return cfg
+}
+
+func (c *Config) Validate() error {
+	if c.JWTSecret == "" {
+		return fmt.Errorf("JWT_SECRET is required")
+	}
+	if c.JWTRefreshSecret == "" {
+		return fmt.Errorf("JWT_REFRESH_SECRET is required")
+	}
+	if c.EncryptionKey == "" {
+		return fmt.Errorf("ENCRYPTION_KEY is required")
+	}
+	if c.JWTSecret == c.JWTRefreshSecret {
+		return fmt.Errorf("JWT_SECRET and JWT_REFRESH_SECRET must be different")
+	}
+	if len(c.EncryptionKey) < 16 {
+		return fmt.Errorf("ENCRYPTION_KEY must be at least 16 characters")
+	}
+	return nil
 }
 
 func (c *Config) IsDev() bool {

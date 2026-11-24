@@ -34,6 +34,21 @@ func (r *RefreshTokenRepo) FindByHash(tokenHash string) (userID uuid.UUID, famil
 	return userID, familyID, revoked, err
 }
 
+func (r *RefreshTokenRepo) Consume(tokenHash string) (userID uuid.UUID, familyID string, ok bool, err error) {
+	err = r.db.QueryRow(
+		`UPDATE refresh_tokens SET revoked = true
+		WHERE token_hash = $1 AND revoked = false AND expires_at > NOW()
+		RETURNING user_id, family_id`, tokenHash,
+	).Scan(&userID, &familyID)
+	if err == sql.ErrNoRows {
+		return uuid.Nil, "", false, nil
+	}
+	if err != nil {
+		return uuid.Nil, "", false, err
+	}
+	return userID, familyID, true, nil
+}
+
 func (r *RefreshTokenRepo) RevokeAllInFamily(familyID string) error {
 	_, err := r.db.Exec(`UPDATE refresh_tokens SET revoked = true WHERE family_id = $1`, familyID)
 	return err

@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -22,12 +21,6 @@ func NewRateLimiter() *RateLimiter {
 	}
 	go rl.cleanupLoop()
 	return rl
-}
-
-func isPrivateIP(ip string) bool {
-	return strings.HasPrefix(ip, "127.") || strings.HasPrefix(ip, "10.") ||
-		strings.HasPrefix(ip, "192.168.") || strings.HasPrefix(ip, "172.") ||
-		ip == "::1" || ip == "localhost"
 }
 
 func (rl *RateLimiter) getLimiter(key string) *rate.Limiter {
@@ -57,10 +50,6 @@ func (rl *RateLimiter) getAdminLimiter(key string) *rate.Limiter {
 func (rl *RateLimiter) GeneralLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip := GetIPAddress(r)
-		if isPrivateIP(ip) {
-			next.ServeHTTP(w, r)
-			return
-		}
 		limiter := rl.getLimiter(ip)
 		if !limiter.Allow() {
 			http.Error(w, `{"error":"リクエストが多すぎます。しばらく待ってください"}`, http.StatusTooManyRequests)
@@ -73,10 +62,6 @@ func (rl *RateLimiter) GeneralLimit(next http.Handler) http.Handler {
 func (rl *RateLimiter) AdminLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip := GetIPAddress(r)
-		if isPrivateIP(ip) {
-			next.ServeHTTP(w, r)
-			return
-		}
 		limiter := rl.getAdminLimiter(ip)
 		if !limiter.Allow() {
 			http.Error(w, `{"error":"リクエストが多すぎます。しばらく待ってください"}`, http.StatusTooManyRequests)

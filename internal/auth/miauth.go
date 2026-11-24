@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"miSchedule/internal/config"
@@ -14,19 +15,49 @@ import (
 	"github.com/google/uuid"
 )
 
+const miAuthSessionTTL = 10 * time.Minute
+
 type MiAuthClient struct {
 	cfg          *config.Config
-	sessionHosts map[string]string
+	mu           sync.Mutex
+	sessionHosts map[string]sessionHostEntry
+}
+
+type sessionHostEntry struct {
+	host      string
+	expiresAt time.Time
 }
 
 func NewMiAuthClient(cfg *config.Config) *MiAuthClient {
-	return &MiAuthClient{cfg: cfg, sessionHosts: make(map[string]string)}
+	client := &MiAuthClient{cfg: cfg, sessionHosts: make(map[string]sessionHostEntry)}
+	go client.cleanupLoop()
+	return client
 }
 
 func (m *MiAuthClient) GetSessionHost(sessionID string) string {
-	host := m.sessionHosts[sessionID]
+	m.mu.Lock()
+	entry, ok := m.sessionHosts[sessionID]
 	delete(m.sessionHosts, sessionID)
-	return host
+	m.mu.Unlock()
+
+	if !ok || time.Now().After(entry.expiresAt) {
+		return ""
+	}
+	return entry.host
+}
+
+func (m *MiAuthClient) cleanupLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	for range ticker.C {
+		m.mu.Lock()
+		now := time.Now()
+		for id, entry := range m.sessionHosts {
+			if now.After(entry.expiresAt) {
+				delete(m.sessionHosts, id)
+			}
+		}
+		m.mu.Unlock()
+	}
 }
 
 func (m *MiAuthClient) resolveHost(host string) string {
@@ -66,13 +97,18 @@ func (m *MiAuthClient) CreateSession(host string) (*model.MiAuthSession, error) 
 		miauthURL += fmt.Sprintf("&callback=%s", callbackURL)
 	}
 
-	m.sessionHosts[sessionID] = baseURL
+	m.mu.Lock()
+	m.sessionHosts[sessionID] = sessionHostEntry{
+		host:      baseURL,
+		expiresAt: time.Now().Add(miAuthSessionTTL),
+	}
+	m.mu.Unlock()
 
 	return &model.MiAuthSession{
 		ID:        sessionID,
 		Host:      baseURL,
 		CSRFToken: csrfToken,
-		MiauthURL:  miauthURL,
+		MiauthURL: miauthURL,
 		CreatedAt: time.Now(),
 	}, nil
 }

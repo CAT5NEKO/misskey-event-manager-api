@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"miSchedule/internal/auth"
+	"miSchedule/internal/model"
 
 	"github.com/google/uuid"
 )
@@ -18,7 +19,11 @@ const (
 	AdminKey  contextKey = "is_admin"
 )
 
-func AuthMiddleware(jwtManager *auth.JWTManager) func(http.Handler) http.Handler {
+type UserLookup interface {
+	FindByID(id uuid.UUID) (*model.User, error)
+}
+
+func AuthMiddleware(jwtManager *auth.JWTManager, users UserLookup) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -45,8 +50,18 @@ func AuthMiddleware(jwtManager *auth.JWTManager) func(http.Handler) http.Handler
 				return
 			}
 
+			user, err := users.FindByID(userID)
+			if err != nil {
+				http.Error(w, `{"error":"認証情報の確認に失敗しました"}`, http.StatusInternalServerError)
+				return
+			}
+			if user == nil || !user.IsActive {
+				http.Error(w, `{"error":"アカウントが無効です"}`, http.StatusUnauthorized)
+				return
+			}
+
 			ctx := context.WithValue(r.Context(), UserIDKey, userID)
-			ctx = context.WithValue(ctx, AdminKey, claims.IsAdmin)
+			ctx = context.WithValue(ctx, AdminKey, user.IsAdmin)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -76,18 +91,31 @@ func IsAdmin(r *http.Request) bool {
 }
 
 func GetIPAddress(r *http.Request) string {
-	xff := r.Header.Get("X-Forwarded-For")
-	if xff != "" {
-		parts := strings.Split(xff, ",")
-		return strings.TrimSpace(parts[0])
+	candidates := make([]string, 0, 4)
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		candidates = append(candidates, strings.Split(xff, ",")...)
 	}
-	xri := r.Header.Get("X-Real-IP")
-	if xri != "" {
-		return xri
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		candidates = append(candidates, xri)
 	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
+	candidates = append(candidates, r.RemoteAddr)
+
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+		if ip := net.ParseIP(candidate); ip != nil {
+			return ip.String()
+		}
+		if host, _, err := net.SplitHostPort(candidate); err == nil {
+			if ip := net.ParseIP(host); ip != nil {
+				return ip.String()
+			}
+		}
 	}
-	return host
+	if len(r.RemoteAddr) > 45 {
+		return r.RemoteAddr[:45]
+	}
+	return r.RemoteAddr
 }

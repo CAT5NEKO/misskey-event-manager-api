@@ -14,6 +14,9 @@ type TokenCrypto struct {
 }
 
 func NewTokenCrypto(encryptionKey string) (*TokenCrypto, error) {
+	if encryptionKey == "" {
+		return nil, errors.New("encryption key must not be empty")
+	}
 	key := []byte(encryptionKey)
 	if len(key) != 32 {
 		if len(key) < 32 {
