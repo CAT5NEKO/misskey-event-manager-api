@@ -15,16 +15,16 @@ import (
 )
 
 type AuthService struct {
-	cfg         *config.Config
-	userRepo    *repository.UserRepo
+	cfg          *config.Config
+	userRepo     *repository.UserRepo
 	instanceRepo *repository.InstanceRepo
-	refreshRepo *repository.RefreshTokenRepo
-	settingRepo *repository.SettingRepo
-	auditRepo   *repository.AuditLogRepo
-	miauth      *auth.MiAuthClient
-	jwtManager  *auth.JWTManager
-	csrfStore   *auth.CSRFStore
-	crypto      *auth.TokenCrypto
+	refreshRepo  *repository.RefreshTokenRepo
+	settingRepo  *repository.SettingRepo
+	auditRepo    *repository.AuditLogRepo
+	miauth       *auth.MiAuthClient
+	jwtManager   *auth.JWTManager
+	csrfStore    *auth.CSRFStore
+	crypto       *auth.TokenCrypto
 }
 
 func NewAuthService(
@@ -60,9 +60,9 @@ func (s *AuthService) Login(host string) (*model.LoginResponse, error) {
 	csrfToken := s.csrfStore.Generate(session.ID)
 
 	return &model.LoginResponse{
-		MiauthURL:  session.MiauthURL,
-		SessionID:  session.ID,
-		CSRFToken:  csrfToken,
+		MiauthURL: session.MiauthURL,
+		SessionID: session.ID,
+		CSRFToken: csrfToken,
 	}, nil
 }
 
@@ -223,7 +223,6 @@ func (s *AuthService) Revoke(userID uuid.UUID, ipAddress, userAgent string) erro
 		return fmt.Errorf("ユーザーが見つかりません")
 	}
 
-	s.userRepo.Deactivate(userID)
 	s.refreshRepo.RevokeAllForUser(userID)
 
 	s.logAudit(userID, "user.revoke_token", "user", &userID, ipAddress, userAgent, nil)

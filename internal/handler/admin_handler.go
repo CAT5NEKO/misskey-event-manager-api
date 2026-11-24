@@ -89,6 +89,24 @@ func (h *AdminHandler) DeactivateUser(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]string{"message": "user deactivated"})
 }
 
+func (h *AdminHandler) ActivateUser(w http.ResponseWriter, r *http.Request) {
+	userID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "ユーザーIDが不正です")
+		return
+	}
+
+	adminID, _ := middleware.GetUserID(r)
+	ipAddress := middleware.GetIPAddress(r)
+	userAgent := r.UserAgent()
+
+	if err := h.adminService.ActivateUser(userID, adminID, ipAddress, userAgent); err != nil {
+		respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	respondJSON(w, http.StatusOK, map[string]string{"message": "user activated"})
+}
+
 func (h *AdminHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))

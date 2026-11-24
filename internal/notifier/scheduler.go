@@ -167,7 +167,6 @@ func (ns *NotificationScheduler) sendNotifications(event model.Event, timingInde
 		token, err := ns.userRepo.DecryptToken(user)
 		if err != nil {
 			log.Printf("failed to decrypt token for user %s: %v", user.ID, err)
-			ns.userRepo.Deactivate(user.ID)
 			continue
 		}
 

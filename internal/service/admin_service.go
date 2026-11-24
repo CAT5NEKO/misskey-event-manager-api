@@ -101,6 +101,23 @@ func (s *AdminService) DeactivateUser(userID, adminID uuid.UUID, ipAddress, user
 	return nil
 }
 
+func (s *AdminService) ActivateUser(userID, adminID uuid.UUID, ipAddress, userAgent string) error {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil || user == nil {
+		return fmt.Errorf("ユーザーが見つかりません")
+	}
+	if user.IsActive {
+		return fmt.Errorf("すでに有効なユーザーです")
+	}
+
+	if err := s.userRepo.Activate(userID); err != nil {
+		return err
+	}
+
+	s.logAudit(adminID, "admin.activate_user", "user", &userID, ipAddress, userAgent, nil)
+	return nil
+}
+
 func (s *AdminService) ListEvents(page, limit int) (*model.PaginatedEvents, error) {
 	if limit <= 0 {
 		limit = 20

@@ -10,7 +10,7 @@ import (
 )
 
 type UserRepo struct {
-	db    *sql.DB
+	db     *sql.DB
 	crypto *auth.TokenCrypto
 }
 
@@ -84,6 +84,14 @@ func (r *UserRepo) UpdateLastLogin(userID uuid.UUID) error {
 func (r *UserRepo) Deactivate(userID uuid.UUID) error {
 	_, err := r.db.Exec(
 		`UPDATE users SET is_active = false, misskey_token = '', updated_at = NOW() WHERE id = $1`,
+		userID,
+	)
+	return err
+}
+
+func (r *UserRepo) Activate(userID uuid.UUID) error {
+	_, err := r.db.Exec(
+		`UPDATE users SET is_active = true, updated_at = NOW() WHERE id = $1`,
 		userID,
 	)
 	return err

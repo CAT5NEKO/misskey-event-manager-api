@@ -194,6 +194,7 @@ func main() {
 				r.Get("/admin/users/{id}", adminHandler.GetUser)
 				r.Delete("/admin/users/{id}", adminHandler.DeleteUser)
 				r.Put("/admin/users/{id}/deactivate", adminHandler.DeactivateUser)
+				r.Put("/admin/users/{id}/activate", adminHandler.ActivateUser)
 
 				r.Get("/admin/events", adminHandler.ListEvents)
 				r.Delete("/admin/events/{id}", adminHandler.DeleteEvent)
